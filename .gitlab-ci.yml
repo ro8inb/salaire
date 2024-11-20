@@ -1,0 +1,45 @@
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  image: node:16-alpine
+  before_script:
+    - apk update
+    - apk add npm
+  script:
+    - npm install
+    - npm audit fix --force
+    - npm run build
+  artifacts:
+    paths:
+      - dist
+
+deploy_to_vps:
+  stage: deploy
+  image: ruby:2.7-alpine
+  before_script:
+    - apk update
+    - apk add openssh-client
+  script:
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > /tmp/deploy_key
+    - chmod 600 /tmp/deploy_key
+    - echo "Copie des fichiers dist sur le VPS"
+    - scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -v -r dist/* debian@$VPS_IP:/home/debian/salaire/
+    - echo "Copie des fichiers Nginx sur le VPS"
+    - scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -v -r nginx/* debian@$VPS_IP:/home/debian/salaire/nginx/
+    - echo "Copie du fichier compose.yaml sur le VPS"
+    - scp -i /tmp/deploy_key -o StrictHostKeyChecking=no -v compose.yaml debian@$VPS_IP:/home/debian/salaire/
+    - echo "Vérification des fichiers sur le VPS"
+    - ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -v debian@$VPS_IP 'ls -l /home/debian/salaire/ && ls -l /home/debian/salaire/nginx/'
+    - echo "Redémarrage des services Docker sur le VPS"
+    - ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no -v debian@$VPS_IP '
+        cd /home/debian/salaire;
+        docker compose down;
+        docker compose up -d --build'
+
+  only:
+    - master
+  dependencies:
+    - build

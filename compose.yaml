@@ -1,0 +1,18 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx_simulation_ae
+    volumes:
+      - .:/etc/nginx/html
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    environment:
+      - VIRTUAL_HOST=simulation-ae.fr,www.simulation-ae.fr
+      - LETSENCRYPT_HOST=simulation-ae.fr,www.simulation-ae.fr
+      - LETSENCRYPT_EMAIL=contact@robinberdier.com
+    networks:
+      - webnet
+
+networks:
+  webnet:
+    external: true
